@@ -1,0 +1,197 @@
+---
+title: "Ecogénomique2 CC2"
+output: 
+  github_document:
+    toc: TRUE
+    toc_depth: 2
+---
+
+```{r}
+library(dada2)
+library(phyloseq)
+library(ggplot2)
+library(Rcpp)
+library(Biostrings)
+```
+```{r, results="hide"}
+path <- "~/Loïc/CC2/EcoG2_data_cc2/Total" # CHANGE ME to the directory containing the fastq files after unzipping.
+list.files(path)
+```
+
+```{r, results="hide"}
+fnFs <- sort(list.files(path, pattern="_R1.fastq"))
+fnRs <- sort(list.files(path, pattern="_R2.fastq"))
+sampleNames <- sapply(strsplit(fnRs, "R"), `[`, 1)
+fnFs <- file.path(path, fnFs)
+fnRs <- file.path(path, fnRs)
+fnFs[1:11]
+fnRs[1:11]
+```
+
+```{r, results="hide"}
+plotQualityProfile(fnFs[1:11])
+plotQualityProfile(fnRs[1:11])
+```
+
+
+```{r, results="hide"}
+filtFs <- file.path(path, "filtered", paste0(sampleNames,"_R1F.fastq.gz"))
+filtRs <- file.path(path, "filtered", paste0(sampleNames,"_R2F.fastq.gz"))
+names(filtFs) <- sampleNames
+names(filtRs) <- sampleNames
+print(filtFs)
+print(filtRs)
+```
+
+```{r, results="hide"}
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen= c(230,200),
+              maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, trimLeft = 21, 
+              compress=TRUE, multithread=TRUE) 
+head(out)
+```
+```{r, results="hide"}
+print(out)
+```
+
+
+```{r, results="hide"}
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+```
+```{r, results="hide"}
+plotErrors(errF, nominalQ=TRUE)
+```
+
+
+```{r, results="hide"}
+dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
+```
+```{r, results="hide"}
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+```
+
+```{r, results="hide"}
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab)
+```
+
+
+```{r, results="hide"}
+table(nchar(getSequences(seqtab)))
+```
+
+```{r, results="hide"}
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim)
+```
+
+```{r, results="hide"}
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sampleNames
+head(track)
+```
+```{r, results="hide"}
+taxa <- assignTaxonomy(seqtab.nochim, "~/Loïc/EcoG1/silva_nr99_v138_train_set.fa.gz?", multithread=TRUE)
+```
+
+```{r, results="hide"}
+taxa.print <- taxa # Removing sequence rownames for display only
+rownames(taxa.print) <- NULL
+head(taxa.print)
+```
+###
+```{r, results="hide"}
+taxa <- addSpecies(taxa, "~/Loïc/EcoG1/RefSeq-RDP_dada2_assignment_species.fa.gz?")
+taxa <- addSpecies(taxa, "~/Loïc/EcoG1/silva_species_assignment_v138.fa.gz?")
+```
+```{r, results="hide"}
+taxa.print <- taxa # Removing sequence rownames for display only
+rownames(taxa.print) <- NULL
+head(taxa.print)
+```
+
+```{r, results="hide"}
+theme_set(theme_bw())
+samples.out <- rownames(seqtab.nochim)
+subject <- samples.out
+echantillon <- substr(subject,10,30)
+subject <- substr(subject,10,30)
+samples.out2 <- samples.out
+samples.out2[c(1, 3, 5, 7, 6, 8, 10)] <- 14
+samples.out2[c(2, 4, 9, 11)] <- 15
+samples.out3 <- samples.out
+samples.out3[c(1, 3, 5, 2, 4)] <- "fond"
+samples.out3[c(6, 7)] <- "median"
+samples.out3[c(8, 9, 10, 11)] <- "surface"
+profondeur <- samples.out3
+year <- as.integer(samples.out2)
+samdf <- data.frame(Subject=subject, Echantillon=echantillon, Year=year, Profondeur=profondeur)
+samdf$When <- "10sept14"
+samdf$When[samdf$Year == "15"] <- "11mars15"
+rownames(samdf) <- samples.out
+```
+
+```{r, results="hide"}
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
+               sample_data(samdf),
+               tax_table(taxa))
+ps <- prune_samples(sample_names(ps) != "Mock", ps) # Remove mock sample
+```
+
+```{r, results="hide"}
+dna <- Biostrings::DNAStringSet(taxa_names(ps))
+names(dna) <- taxa_names(ps)
+ps <- merge_phyloseq(ps, dna)
+taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+```
+
+#Plots d'abondance avec indice de Shannon et Simpson
+```{r}
+plot_richness(ps, x="Profondeur", measures=c("Shannon", "Simpson"), color="When")
+```
+###Le plot de l'indice de Shannon montre un indice plus élevé dans le fond pour les échantillons du 10 septembre 2014 et un indice plus élevé pour les échantillons en surface le 11 mars 2015. Cet indice prend en compte l'abondance. Le plot de l'indice de Simpson nous donne les mêmes résultats. Le fait que les deux plots soient en accord confirme le fait que l'un n'est pas biaisé par l'abondance et l'autre par la diversité. Les échantillons "median" montre des résultats similaires. On ne peut pas les comparer à des échantillons équivalents au 11 mars 2015, en revanche, nous constatons un continuum de chute de diversité (/abondance) au fur et à mesure que l'on remonte à la surface pour les échantillon du 10 septembre 2014. Les échantillons du 11 mars 2015 montre une constance et une équivalance entre le fond et la surface.
+
+```{r}
+plot_richness(ps, x="Echantillon", measures=c("Shannon", "Simpson"), color="When")
+```
+###Cette représentation nous donne une vision plus éclatée mais ne nous apprend rien de plus.
+
+
+#Pcoa 
+```{r}
+pslog <- transform_sample_counts(ps, function(x) log(1 + x))
+out.wuf.log <- ordinate(pslog, method = "PCoA", distance = "bray")
+```
+```{r}
+evals <- out.wuf.log$values$Eigenvalues
+plot_ordination(pslog, out.wuf.log, color = "Profondeur", shape="When") +
+labs(col = "Profondeur",shape= "When") 
+```
+###Cette pcoa nous montre la distance entre les échantillons. Ce plot laisse apparaitre des cluster en fonction de la profondeur (couleur) mais aussi un cluster (en bas à droite du plot) en fonction de la période d'échantillonnage (forme). Cette pcoa nous laisse penser que la profondeur et la période est un facteur déterminant la composition des communautés bactériennes dans nos échantillons.
+
+
+
+#Abondance des genres en fonction de la période et de la profondeur d'échantillonnage.
+```{r}
+top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+ps.top20 <- prune_taxa(top20, ps.top20)
+plot_bar(ps.top20, x="Profondeur", fill="Genus") + facet_wrap(~When, scales="free_x")
+```
+###Cette figure montre l'abondance et les biomarqueurs de la zone d'échantillonnage. Les bactéries du genre clade Ia sont les plus représentées et présentes lors des échantillonnages sur les deux périodes et à toutes les profondeurs.
+
+
+#Abondance des familles en fonction de la période par échantillonnage.
+```{r}
+top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+ps.top20 <- prune_taxa(top20, ps.top20)
+plot_bar(ps.top20, x="Echantillon", fill="Family") + facet_wrap(~When, scales="free_x")
+```
+###Cette figure montre l'abondance relative et la composition des échantillons en familles bactériennes sur les deux périodes d'échantillonnage. Cette figure met en avant la présence de cyanobactérie à la surface et en profondeur médiane en été. Les cyanobactéries sont des bactéries photosynthétiques, ce qui explique ces résultats.
+
+
+###Ce travail fut très intéressant et nous a permis de mettre en pratique ce que nous avions vu précédemment. La base de donnée importée (train_set) semble manquer de précision au vu des résultats.
