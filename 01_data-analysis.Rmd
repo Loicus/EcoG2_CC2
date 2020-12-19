@@ -152,6 +152,7 @@ taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
 ```{r}
 plot_richness(ps, x="Profondeur", measures=c("Shannon", "Simpson"), color="When")
 ```
+
 ###Le plot de l'indice de Shannon montre un indice plus élevé dans le fond pour les échantillons du 10 septembre 2014 et un indice plus élevé pour les échantillons en surface le 11 mars 2015. Cet indice prend en compte l'abondance. Le plot de l'indice de Simpson nous donne les mêmes résultats. Le fait que les deux plots soient en accord confirme le fait que l'un n'est pas biaisé par l'abondance et l'autre par la diversité. Les échantillons "median" montre des résultats similaires. On ne peut pas les comparer à des échantillons équivalents au 11 mars 2015, en revanche, nous constatons un continuum de chute de diversité (/abondance) au fur et à mesure que l'on remonte à la surface pour les échantillon du 10 septembre 2014. Les échantillons du 11 mars 2015 montre une constance et une équivalance entre le fond et la surface.
 
 ```{r}
@@ -170,7 +171,7 @@ evals <- out.wuf.log$values$Eigenvalues
 plot_ordination(pslog, out.wuf.log, color = "Profondeur", shape="When") +
 labs(col = "Profondeur",shape= "When") 
 ```
-###Cette pcoa nous montre la distance entre les échantillons. Ce plot laisse apparaitre des cluster en fonction de la profondeur (couleur) mais aussi un cluster (en bas à droite du plot) en fonction de la période d'échantillonnage (forme). Cette pcoa nous laisse penser que la profondeur et la période est un facteur déterminant la composition des communautés bactériennes dans nos échantillons.
+###Cette pcoa nous montre la distance entre les échantillons. Ce plot laisse apparaitre des clusters en fonction de la profondeur (couleur) mais aussi un cluster (en bas à droite du plot) en fonction de la période d'échantillonnage (forme). Cette pcoa nous laisse penser que la profondeur est un facteur influencant la composition des communautés bactériennes en été. En revanche, la composition des communautés bactériennes en mars semble montrer une certaine similarité, peu importe la profondeur d’échantillonnage. La composition des communautés bactériennes est impacté qu’en été.
 
 
 
@@ -181,7 +182,7 @@ ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
 ps.top20 <- prune_taxa(top20, ps.top20)
 plot_bar(ps.top20, x="Profondeur", fill="Genus") + facet_wrap(~When, scales="free_x")
 ```
-###Cette figure montre l'abondance et les biomarqueurs de la zone d'échantillonnage. Les bactéries du genre clade Ia sont les plus représentées et présentes lors des échantillonnages sur les deux périodes et à toutes les profondeurs.
+###Cette figure montre l'abondance et les biomarqueurs de la zone d'échantillonnage. Les bactéries du genre clade Ia sont les plus représentées et présentes lors des échantillonnages sur les deux périodes et à toutes les profondeurs.Les Synechococcus sont des marqueurs de l’été et leur présence se raréfie au fur et à mesure de la profondeur. D’autre genre comme Amylibacter sont des marqueurs de l’été que l’on retrouve aux 3 profondeurs. Le groupe «NS5 marine» est un marqueur de profondeur que l’on retrouve dans les échantillons de fond, sur les deux périodes. Les genres que l’on retrouve en mars sont retrouvé en septembre. 
 
 
 #Abondance des familles en fonction de la période par échantillonnage.
@@ -191,7 +192,7 @@ ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
 ps.top20 <- prune_taxa(top20, ps.top20)
 plot_bar(ps.top20, x="Echantillon", fill="Family") + facet_wrap(~When, scales="free_x")
 ```
-###Cette figure montre l'abondance relative et la composition des échantillons en familles bactériennes sur les deux périodes d'échantillonnage. Cette figure met en avant la présence de cyanobactérie à la surface et en profondeur médiane en été. Les cyanobactéries sont des bactéries photosynthétiques, ce qui explique ces résultats.
+###Cette figure montre l'abondance relative et la composition des échantillons en familles bactériennes sur les deux périodes d'échantillonnage. Cette figure est en accord avec la pcoa et les plots d’alpha diversité: on constate une composition des communautés bactériennes stable en Mars. En septembre, on observe un gradient des bactéries photosynthétiques (Cyanobiaceae, Rhodobacteraceae) du fond vers la surface impactant de manière significative l’abondance relative des communautés bactériennes. Cette figure met en avant la présence de cyanobactérie à la surface et en profondeur médiane en été. Les cyanobactéries sont des bactéries photosynthétiques, ce qui explique ces résultats.
 
 
 ###Ce travail fut très intéressant et nous a permis de mettre en pratique ce que nous avions vu précédemment. La base de donnée importée (train_set) semble manquer de précision au vu des résultats.
